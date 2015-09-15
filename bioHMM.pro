@@ -1,5 +1,5 @@
 QT += core
-QT -= gui
+QT += gui
 
 TARGET = bioHMM
 CONFIG += console
@@ -7,8 +7,9 @@ CONFIG -= app_bundle
 
 TEMPLATE = app
 
-SOURCES += main.cpp
+SOURCES += main.cpp \
+    pairhmm.cpp
 
 HEADERS += \
-    qtclass.h
-
+    pairhmm.h \
+    stl.h \
