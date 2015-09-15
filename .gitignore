@@ -70,4 +70,8 @@ Thumbs.db
 *.dll
 *.exe
 
+# Makefile
+*Makefile*
+*makefile*
+*MakeFile*
 
