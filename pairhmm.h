@@ -66,6 +66,7 @@ typedef Matrix<ScoreCell> ScoreMatrix;
 class PairHMM
 {
     public:
+        // --------------- parameters --------------//
         // set sequences
         inline void setSeq(string _seqX, string _seqY, bool is_val = true)
         {
@@ -112,6 +113,9 @@ class PairHMM
             if (fabs(sum(_Px_value) - 1) > TOL)
                 throw runtime_error("in PairHMM::set_Px, Px_value is not a probability.");
             Px_value = _Px_value;
+            log_Px_value.clear();
+            for (int i=0; i<(int)Px_value.size(); i++)
+                log_Px_value.push_back(log(Px_value[i]));
         }
         inline void set_Py(vector <double> & _Py_value)
         {
@@ -125,6 +129,9 @@ class PairHMM
             if (fabs(sum(_Py_value) - 1) > TOL )
                 throw runtime_error("in PairHMM::set_Py, Py_value is not a probability.");
             Py_value = _Py_value;
+            log_Py_value.clear();
+            for (int i=0; i<(int)Py_value.size(); i++)
+                log_Py_value.push_back(log(Py_value[i]));
         }
         inline void set_Pxy(Matrix <double> & _Pxy_value)
         {
@@ -140,10 +147,14 @@ class PairHMM
             if (fabs(sum(_Pxy_value) - 1) > TOL)
                 throw runtime_error("in PairHMM::set_Pxy, Pxy_value is not a probability.");
             Pxy_value = _Pxy_value;
+            log_Pxy_value.setDim(Pxy_value.nrow, Pxy_value.ncol);
+            for (int i=0; i<Pxy_value.nrow; i++)
+                for (int j=0; j<Pxy_value.ncol; j++)
+                    log_Pxy_value[i][j] = log(Pxy_value[i][j]);
         }
 
-        // log marginal probablity of X, index is A=0, C=1, G=2, T=3, N=4
-        double Px(const char &x){
+        // get probablity Px, Py, Pxy, index is A=0, C=1, G=2, T=3, N=4
+        inline double Px(const char &x, int is_log=false){
             if (Px_value.size() != 4 && Px_value.size() != 5)
                 throw runtime_error("in PairHMM::Px, size of Px_value should be 4 or 5.");
             int i;
@@ -166,10 +177,12 @@ class PairHMM
                 default:
                     throw runtime_error("PairHMM::Px, input should be A, C, G, T, or N");
             }
-            return Px_value[i];
+            if (is_log)
+                return log_Px_value[i];
+            else
+                return Px_value[i];
         }
-        // log marginal probablity of Y
-        double Py(const char &y){
+        inline double Py(const char &y, int is_log=false){
             if (Py_value.size() != 4 && Py_value.size() != 5)
                 throw runtime_error("in PairHMM::Py, size of Py_value should be 4 or 5.");
             int j;
@@ -192,10 +205,12 @@ class PairHMM
                 default:
                     throw runtime_error("PairHMM::Py, input should be A, C, G, T, or N");
             }
-            return Py_value[j];
+            if (is_log)
+                return log_Py_value[j];
+            else
+                return Py_value[j];
         }
-        // log joint probablity of XY
-        double Pxy(const char &x, const char &y){
+        inline double Pxy(const char &x, const char &y, int is_log=false){
             if ((Pxy_value.nrow != 4 && Pxy_value.nrow != 5) || (Pxy_value.ncol != 4 && Pxy_value.ncol != 5))
                 throw runtime_error("in PairHMM::Pxy, size of Pxy_value should be 4x4 or 5x5.");
             int i, j;
@@ -237,10 +252,19 @@ class PairHMM
                 default:
                     throw runtime_error("PairHMM::Pxy, input should be A, C, G, T, or N");
             }
-            return Pxy_value[i][j];
+            if (is_log)
+                return log_Pxy_value[i][j];
+            else
+                return Pxy_value[i][j];
         }
 
-        protected:
+        // get cigar
+        inline vector < pair<char, int> > & get_cigar(){return cigar;}
+        inline ScoreMatrix & get_scoreMat(){return scoreMat;}
+        // -------------- algorithms ----------- //
+
+        void viterbi();
+    protected:
         // input sequences
         string seqX;
         string seqY;

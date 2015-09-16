@@ -2,6 +2,7 @@
 ///Define this macro to prevent from including this header file more than once.
 #define MATH_UTILS_H
 
+
 #include "stl.h"
 #include "type.h"
 #include "matrix.h"
