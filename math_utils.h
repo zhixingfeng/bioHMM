@@ -4,7 +4,7 @@
 
 #include "stl.h"
 #include "type.h"
-
+#include "matrix.h"
 const double epsilon = 1e-10;
 
 inline int round_double(double x){
@@ -369,6 +369,16 @@ public:
 	   }
 	}
 };
+
+inline double sum(Matrix<double> &data){
+    double result = 0;
+    for (int i=0; i<data.nrow; i++){
+        for (int j=0; j<data.ncol; j++){
+            result += data[i][j];
+        }
+    }
+    return result;
+}
 
 inline int sum( map<string, int> &data){
 	int result = 0;

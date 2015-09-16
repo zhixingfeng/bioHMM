@@ -11,6 +11,9 @@ template<typename T> struct Matrix
 
     // set dimension
     void setDim(int _nrow, int _ncol){
+        for (int i=0; i < (int)value.size(); i++)
+            value[i].clear();
+        value.clear();
         nrow = _nrow;
         ncol = _ncol;
         for (int i=0; i<nrow; i++){
@@ -24,10 +27,11 @@ template<typename T> struct Matrix
     }
 
     // define operator
-    vector<T> operator[](const int i)
+    vector<T> & operator[](const int i)
     {
         return value[i];
     }
+
     // cell value
     vector<vector<T> > value;
 

@@ -1,10 +1,19 @@
 #include "stl.h"
 #include <tclap/CmdLine.h>
 #include "pairhmm.h"
-#include "./test/test_matrix.cpp"
+#include "./test/test_matrix.h"
+#include "./test/test_pairhmm.h"
+
 int main(int argc, char *argv[])
 {
-    Matrix <int> mat(2, 3);
+    /*try{
+    PairHMM a;
+    //a.Px('G');
+    a.log_Py('G');
+    }
+    catch(exception& e){
+        cerr << "Expection: " << e.what() << endl;
+    }*/
     return UnitTest::RunAllTests();
 }
 

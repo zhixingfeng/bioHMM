@@ -8,16 +8,16 @@ CONFIG -= app_bundle
 TEMPLATE = app
 
 SOURCES += main.cpp \
-    pairhmm.cpp \
-    test/test_pairhmm.cpp \
-    test/test_matrix.cpp
+    pairhmm.cpp
 
 HEADERS += \
     pairhmm.h \
     stl.h \
     math_utils.h \
     type.h \
-    matrix.h
+    matrix.h \
+    test/test_matrix.h \
+    test/test_pairhmm.h
 
 INCLUDEPATH += ./tools
 

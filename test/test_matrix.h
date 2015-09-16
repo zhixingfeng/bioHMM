@@ -1,3 +1,6 @@
+#ifndef TEST_MATRIX_H
+#define TEST_MATRIX_H
+
 #include "../matrix.h"
 #include <UnitTest++/UnitTest++.h>
 SUITE(TestMatrix)
@@ -21,6 +24,7 @@ SUITE(TestMatrix)
 
     };
 
+    // test if value of Matrix can be set and retrive correctly. Also test the overloaded operator "[]"
     TEST_FIXTURE(TestMatrix, Matrix_setValue)
     {
         vector<double> x;
@@ -36,3 +40,6 @@ SUITE(TestMatrix)
     }
 
 }
+
+#endif // TEST_MATRIX
+
