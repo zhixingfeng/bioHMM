@@ -4,7 +4,7 @@
 #include "stl.h"
 #include "matrix.h"
 #include "math_utils.h"
-#define TOL 0.000001
+#define TOL 10e-16
 
 struct QualityScore
 {
@@ -40,15 +40,12 @@ struct ScoreCell
     // init
     ScoreCell()
     {
-        Vm = -1;
-        Vx = -1;
-        Vy = -1;
         bases_X = 'N';
         bases_Y = 'N';
     }
 
     // current score of match/mismatch, gap in X, gap in Y
-    double Vm, Vx, Vy;
+    double Vm, Vx, Vy, log_Vm, log_Vx, log_Vy;
 
     // matched bases in the current cell, for example <A,A> or <-,G>
     char bases_X;
@@ -56,6 +53,9 @@ struct ScoreCell
 
     // quality score
     QualityScore QV;
+
+    // path
+    string path;
 };
 
 typedef Matrix<ScoreCell> ScoreMatrix;
@@ -66,6 +66,14 @@ typedef Matrix<ScoreCell> ScoreMatrix;
 class PairHMM
 {
     public:
+        PairHMM()
+        {
+            is_setSeq = false;
+            is_setPar = false;
+            is_set_Px = false;
+            is_set_Py = false;
+            is_set_Pxy = false;
+        }
         // --------------- parameters --------------//
         // set sequences
         inline void setSeq(string _seqX, string _seqY, bool is_val = true)
@@ -76,6 +84,8 @@ class PairHMM
                 validateSeq(seqX);
                 validateSeq(seqY);
             }
+            scoreMat.setDim(seqX.size(), seqY.size());
+            is_setSeq = true;
         }
 
         // get sequence
@@ -83,22 +93,47 @@ class PairHMM
         inline string getSeqY(){return seqY;}
 
         // set parameters eps and dlt
-        inline void setPar(double _eps, double _dlt)
+        inline void setPar(double _eps_x, double _dlt_x, double _eps_y, double _dlt_y)
         {
-            if (_eps <= 0 || _eps >= 1 || _dlt <= 0 || _dlt >= 1){
+            if (_eps_x <= 0 || _eps_x >= 1 || _dlt_x <= 0 || _dlt_x >= 1 || _eps_y <= 0 || _eps_y >= 1 || _dlt_y <= 0 || _dlt_y >= 1){
                 throw runtime_error("in setPar, eps and dlt should be in (0,1)");
             }
-            eps = _eps;
-            dlt = _dlt;
-            log_eps = log(eps);
-            log_dlt = log(dlt);
+            if (_dlt_x + _dlt_y >= 1)
+                throw runtime_error("in setPar, dlt_x + dlt_y should < 1");
+
+
+            eps_x = _eps_x; eps_y = _eps_y;
+            dlt_x = _dlt_x; dlt_y = _dlt_y;
+            log_eps_x = log(eps_x); log_eps_y = log(eps_y);
+            log_dlt_x = log(dlt_x); log_dlt_y = log(dlt_y);
+
+            a_mm = 1 - dlt_x - dlt_y;
+            a_im_x = 1 - eps_x;
+            a_im_y = 1 - eps_y;
+            log_a_mm = log(a_mm);
+            log_a_im_x = log(a_im_x);
+            log_a_im_y = log(a_im_y);
+
+            is_setPar = true;
         }
 
         // get parameters
-        inline double getPar_eps(){return eps;}
-        inline double getPar_dlt(){return dlt;}
-        inline double getPar_log_eps(){return log_eps;}
-        inline double getPar_log_dlt(){return log_dlt;}
+        inline double getPar_eps_x(){return eps_x;}
+        inline double getPar_dlt_x(){return dlt_x;}
+        inline double getPar_log_eps_x(){return log_eps_x;}
+        inline double getPar_log_dlt_x(){return log_dlt_x;}
+
+        inline double getPar_eps_y(){return eps_y;}
+        inline double getPar_dlt_y(){return dlt_y;}
+        inline double getPar_log_eps_y(){return log_eps_y;}
+        inline double getPar_log_dlt_y(){return log_dlt_y;}
+
+        inline double getPar_a_mm(){return a_mm;}
+        inline double getPar_a_im_x(){return a_im_x;}
+        inline double getPar_a_im_y(){return a_im_y;}
+        inline double getPar_log_a_mm(){return log_a_mm;}
+        inline double getPar_log_a_im_x(){return log_a_im_x;}
+        inline double getPar_log_a_im_y(){return log_a_im_y;}
 
         // set proablity Px, Py, and Pxy
         inline void set_Px(vector <double> & _Px_value)
@@ -112,10 +147,13 @@ class PairHMM
             }
             if (fabs(sum(_Px_value) - 1) > TOL)
                 throw runtime_error("in PairHMM::set_Px, Px_value is not a probability.");
+
             Px_value = _Px_value;
             log_Px_value.clear();
             for (int i=0; i<(int)Px_value.size(); i++)
                 log_Px_value.push_back(log(Px_value[i]));
+
+            is_set_Px = true;
         }
         inline void set_Py(vector <double> & _Py_value)
         {
@@ -128,10 +166,13 @@ class PairHMM
             }
             if (fabs(sum(_Py_value) - 1) > TOL )
                 throw runtime_error("in PairHMM::set_Py, Py_value is not a probability.");
+
             Py_value = _Py_value;
             log_Py_value.clear();
             for (int i=0; i<(int)Py_value.size(); i++)
                 log_Py_value.push_back(log(Py_value[i]));
+
+            is_set_Py = true;
         }
         inline void set_Pxy(Matrix <double> & _Pxy_value)
         {
@@ -146,11 +187,14 @@ class PairHMM
             }
             if (fabs(sum(_Pxy_value) - 1) > TOL)
                 throw runtime_error("in PairHMM::set_Pxy, Pxy_value is not a probability.");
+
             Pxy_value = _Pxy_value;
             log_Pxy_value.setDim(Pxy_value.nrow, Pxy_value.ncol);
             for (int i=0; i<Pxy_value.nrow; i++)
                 for (int j=0; j<Pxy_value.ncol; j++)
                     log_Pxy_value[i][j] = log(Pxy_value[i][j]);
+
+            is_set_Pxy = true;
         }
 
         // get probablity Px, Py, Pxy, index is A=0, C=1, G=2, T=3, N=4
@@ -260,17 +304,23 @@ class PairHMM
 
         // get cigar
         inline vector < pair<char, int> > & get_cigar(){return cigar;}
-        inline ScoreMatrix & get_scoreMat(){return scoreMat;}
-        // -------------- algorithms ----------- //
 
+        // get scoreMat
+        inline ScoreMatrix & get_scoreMat(){return scoreMat;}
+
+        // -------------- algorithms ----------- //
         void viterbi();
+
     protected:
         // input sequences
         string seqX;
         string seqY;
 
         // parameters: eps is "prob from indel to indel", dlt is "prob from match to indel"
-        double eps, dlt, log_eps, log_dlt;
+        double eps_x, dlt_x, log_eps_x, log_dlt_x, eps_y, dlt_y, log_eps_y, log_dlt_y;
+
+        // derived parameters: a_mm = 1 - dlt_x - dlt_y, a_mi_x = 1 - eps_x, a_mi_y = 1 - eps_y
+        double a_mm, a_im_x, a_im_y, log_a_mm, log_a_im_x, log_a_im_y;
 
         //  marginal probability of X
         vector<double> Px_value;
@@ -290,6 +340,13 @@ class PairHMM
 
         // score matrix, work on log space
         ScoreMatrix scoreMat;
+
+        // indicator, have to set seqX, seqY, and parameters before running algorithms
+        bool is_setSeq;
+        bool is_setPar;
+        bool is_set_Px;
+        bool is_set_Py;
+        bool is_set_Pxy;
 
     protected:
         // validate sequence

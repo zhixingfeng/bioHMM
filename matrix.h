@@ -32,6 +32,8 @@ template<typename T> struct Matrix
         return value[i];
     }
 
+
+
     // cell value
     vector<vector<T> > value;
 

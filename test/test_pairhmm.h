@@ -27,17 +27,31 @@ SUITE(TestPairHMM)
 
     TEST_FIXTURE(TestPairHMM, PairHMM_setPar){
         // set normal par
-        hmm.setPar(0.1,0.8);
-        CHECK_EQUAL(hmm.getPar_eps(), 0.1);
-        CHECK_EQUAL(hmm.getPar_dlt(), 0.8);
-        CHECK_EQUAL(hmm.getPar_log_eps(), log(0.1));
-        CHECK_EQUAL(hmm.getPar_log_dlt(), log(0.8));
+        hmm.setPar(0.1,0.8, 0.4,0.1);
+        CHECK_EQUAL(hmm.getPar_eps_x(), 0.1);
+        CHECK_EQUAL(hmm.getPar_dlt_x(), 0.8);
+        CHECK_EQUAL(hmm.getPar_log_eps_x(), log(0.1));
+        CHECK_EQUAL(hmm.getPar_log_dlt_x(), log(0.8));
+
+        CHECK_EQUAL(hmm.getPar_eps_y(), 0.4);
+        CHECK_EQUAL(hmm.getPar_dlt_y(), 0.1);
+        CHECK_EQUAL(hmm.getPar_log_eps_y(), log(0.4));
+        CHECK_EQUAL(hmm.getPar_log_dlt_y(), log(0.1));
+
+        CHECK_EQUAL(hmm.getPar_a_mm(), 1 - 0.8 - 0.1);
+        CHECK_EQUAL(hmm.getPar_a_im_x(), 1 - 0.1);
+        CHECK_EQUAL(hmm.getPar_a_im_y(), 1 - 0.4);
+        CHECK_EQUAL(hmm.getPar_log_a_mm(), log(1 - 0.8 - 0.1));
+        CHECK_EQUAL(hmm.getPar_log_a_im_x(), log(1 - 0.1));
+        CHECK_EQUAL(hmm.getPar_log_a_im_y(), log(1 - 0.4));
+
 
         // set abnormal par
-        CHECK_THROW(hmm.setPar(0,0.8), exception);
-        CHECK_THROW(hmm.setPar(0.1,1), exception);
-        CHECK_THROW(hmm.setPar(0,1), exception);
-        CHECK_THROW(hmm.setPar(-10390,1879371937), exception);
+        CHECK_THROW(hmm.setPar(0, 0.8, 0.4, 0.1), exception);
+        CHECK_THROW(hmm.setPar(0.1, 1, 0.4, 0), exception);
+        CHECK_THROW(hmm.setPar(0, 1, 0.4, 0), exception);
+        CHECK_THROW(hmm.setPar(-10390, 1879371937, 0.4, 0.6), exception);
+        CHECK_THROW(hmm.setPar(0.1, 0.8, 0.4, 0.21), exception);
     }
 
     TEST_FIXTURE(TestPairHMM, PairHMM_set_Px)
@@ -179,6 +193,31 @@ SUITE(TestPairHMM)
         CHECK_THROW(hmm.set_Pxy(P_1), exception);
     }
 
+    TEST_FIXTURE(TestPairHMM, PairHMM_viterbi)
+    {
+        CHECK_THROW(hmm.viterbi(), exception);
+        hmm.setSeq("ACCTGAGAG", "ACGTGGCAG");
+        CHECK_THROW(hmm.viterbi(), exception);
+        hmm.setPar(0.5, 0.25, 0.5, 0.25);
+        CHECK_THROW(hmm.viterbi(), exception);
+        vector<double> Px(4, 0.25);
+        hmm.set_Px(Px);
+        CHECK_THROW(hmm.viterbi(), exception);
+        vector<double> Py(4, 0.25);
+        hmm.set_Py(Py);
+        CHECK_THROW(hmm.viterbi(), exception);
+        Matrix <double> Pxy(4,4);
+        vector<double> cur_row(4,0.0625);
+        for (int i=0; i<Pxy.nrow; i++) Pxy[i] = cur_row;
+        hmm.set_Pxy(Pxy);
+        try{
+            hmm.viterbi();
+        }
+        catch (exception &e){
+            cout << e.what() << endl;
+        }
+
+    }
 
 }
 
