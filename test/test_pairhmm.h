@@ -23,6 +23,8 @@ SUITE(TestPairHMM)
         CHECK_THROW(hmm.setSeq("CGATGCXX","CGTATTTTTTNNT"), exception);
         CHECK_THROW(hmm.setSeq("CGATGCN","CGTATTTTTTNNTXXX"), exception);
         CHECK_THROW(hmm.setSeq("CGATGC12342  ","CGTATTTTTTNNTXXX"), exception);
+        CHECK_THROW(hmm.setSeq("","CGTATTTTTTNNTXXX"), exception);
+        CHECK_THROW(hmm.setSeq("CGATGC",""), exception);
     }
 
     TEST_FIXTURE(TestPairHMM, PairHMM_setPar){
@@ -196,26 +198,53 @@ SUITE(TestPairHMM)
     TEST_FIXTURE(TestPairHMM, PairHMM_viterbi)
     {
         CHECK_THROW(hmm.viterbi(), exception);
-        hmm.setSeq("ACCTGAGAG", "ACGTGGCAG");
+        // set seqX and seqY
+        hmm.setSeq("ACCTGAGAG", "ACGTGGAG");
         CHECK_THROW(hmm.viterbi(), exception);
-        hmm.setPar(0.5, 0.25, 0.5, 0.25);
+        // eps_x = 0.02, dlt_x = 0.01, eps_y=0.02, eps_y=0.01
+        hmm.setPar(0.02, 0.01, 0.02, 0.01);
         CHECK_THROW(hmm.viterbi(), exception);
+        // Px = [0.25, 0.25, 0.25, 0.25]
         vector<double> Px(4, 0.25);
         hmm.set_Px(Px);
         CHECK_THROW(hmm.viterbi(), exception);
+        // Py = [0.25, 0.25, 0.25, 0.25]
         vector<double> Py(4, 0.25);
         hmm.set_Py(Py);
         CHECK_THROW(hmm.viterbi(), exception);
+
+        // Pxy = [0.22, 0.01, 0.01, 0.01
+        //        0.01, 0.22, 0.01, 0.01
+        //        0.01, 0.01, 0.22, 0.01
+        //        0.01, 0.01, 0.01, 0.22]
         Matrix <double> Pxy(4,4);
-        vector<double> cur_row(4,0.0625);
+        vector<double> cur_row(4,0.01);
         for (int i=0; i<Pxy.nrow; i++) Pxy[i] = cur_row;
+        for (int i=0; i<Pxy.nrow; i++) Pxy[i][i] = 0.22;
         hmm.set_Pxy(Pxy);
+
+        // run viterbi
         try{
             hmm.viterbi();
         }
         catch (exception &e){
             cout << e.what() << endl;
         }
+
+        // get scoreMat
+        Matrix<ScoreCell> outMat = hmm.get_scoreMat();
+        for (int i=0; i<outMat.nrow; i++){
+            for (int j=0; j<outMat.ncol; j++){
+                cout << '(' << outMat[i][j].log_Vm << ',' << outMat[i][j].log_Vx << ',' << outMat[i][j].log_Vy << ")\t";
+            }
+            cout << endl;
+        }
+
+        // get cigar
+        vector<pair<char, int> > cigar = hmm.get_cigar();
+        for (int i=0; i<(int)cigar.size(); i++)
+            cout << '(' << cigar[i].first << ',' << cigar[i].second << "),";
+        cout << endl;
 
     }
 

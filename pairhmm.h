@@ -55,7 +55,9 @@ struct ScoreCell
     QualityScore QV;
 
     // path
-    string path;
+    string path_M;
+    string path_X;
+    string path_Y;
 };
 
 typedef Matrix<ScoreCell> ScoreMatrix;
@@ -84,7 +86,7 @@ class PairHMM
                 validateSeq(seqX);
                 validateSeq(seqY);
             }
-            scoreMat.setDim(seqX.size(), seqY.size());
+            scoreMat.setDim(seqX.size()+1, seqY.size()+1);
             is_setSeq = true;
         }
 
@@ -354,10 +356,11 @@ class PairHMM
         {
             for (int i=0; i<(int)seq.size(); i++){
                 if (seq[i] != 'A' && seq[i] != 'C' && seq[i] != 'G' && seq[i] != 'T' && seq[i] != 'N'){
-                    throw runtime_error("in PairHMM::validateSeq, sequence contains letter other than A, C, G, T or N");
+                    throw runtime_error("in PairHMM::validateSeq, sequence contains letter other than A, C, G, T or N.");
                 }
             }
-
+            if (seq.size() < 1)
+                throw runtime_error("empty sequences is not allowed.");
         }
 
 
