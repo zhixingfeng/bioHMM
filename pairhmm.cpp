@@ -1,4 +1,55 @@
 #include "pairhmm.h"
+double PairHMM::cal_likelihood_from_cigar(bool is_log)
+{
+    if (cigar.size()==0)
+        throw runtime_error("trying to calculate likelihood from cigar buy cigar is empty");
+    // init state is forced to be M, i.e. Pr(S_0) = Pr(S_0|M)
+    double log_L = 0;
+    int i = -1;
+    int j = -1;
+    for (int k=0; k < (int) cigar.size(); k++){
+        double log_prob_jump;
+        if (k == 0)
+            log_prob_jump = transProb('M', cigar[k].first, true);
+        else
+            log_prob_jump = transProb(cigar[k-1].first, cigar[k].first, true);
+        if (cigar[k].first == 'M'){
+            ++i; ++j;
+            log_prob_jump += Pxy(seqX[i], seqY[j], true);
+        }
+        if (cigar[k].first == 'I'){
+            ++i;
+            log_prob_jump += Px(seqX[i], true);
+        }
+        if (cigar[k].first == 'D'){
+            ++j;
+            log_prob_jump += Py(seqY[j], true);
+        }
+        log_L += log_prob_jump;
+
+
+        for (int n=1; n < cigar[k].second; n++){
+            double log_prob_run = transProb(cigar[k].first, cigar[k].first, true);
+            if (cigar[k].first == 'M'){
+                ++i; ++j;
+                log_prob_run += Pxy(seqX[i], seqY[j], true);
+            }
+            if (cigar[k].first == 'I'){
+                ++i;
+                log_prob_run += Px(seqX[i], true);
+            }
+            if (cigar[k].first == 'D'){
+                ++j;
+                log_prob_run += Py(seqY[j], true);
+            }
+            log_L += log_prob_run;
+        }
+    }
+    if (is_log)
+        return log_L;
+    else
+        return exp(log_L);
+}
 
 void PairHMM::viterbi()
 {
@@ -12,16 +63,15 @@ void PairHMM::viterbi()
         throw runtime_error("Py have not be set.");
     if (!is_set_Pxy)
         throw runtime_error("Pxy have not be set.");
-
     // initialize
-    scoreMat[0][0].log_Vm = 0; scoreMat[0][0].log_Vx = log(TOL); scoreMat[0][0].log_Vy = log(TOL);
+    scoreMat[0][0].log_Vm = 0; scoreMat[0][0].log_Vx = LOG_MIN; scoreMat[0][0].log_Vy = LOG_MIN;
     for (int i=1; i<scoreMat.nrow; i++){
         if (i==1)
             scoreMat[i][0].log_Vx = Px(seqX[i-1],true) + log_dlt_x + scoreMat[i-1][0].log_Vm;
         else
             scoreMat[i][0].log_Vx = Px(seqX[i-1],true) + log_eps_x + scoreMat[i-1][0].log_Vx;
-        scoreMat[i][0].log_Vm = log(TOL);
-        scoreMat[i][0].log_Vy = log(TOL);
+        scoreMat[i][0].log_Vm = LOG_MIN;
+        scoreMat[i][0].log_Vy = LOG_MIN;
         scoreMat[i][0].path_M = 'I';
         scoreMat[i][0].path_X = 'I';
         scoreMat[i][0].path_Y = 'I';
@@ -32,8 +82,8 @@ void PairHMM::viterbi()
             scoreMat[0][j].log_Vy = Py(seqY[j-1],true) + log_dlt_x + scoreMat[0][j-1].log_Vm;
         else
             scoreMat[0][j].log_Vy = Py(seqY[j-1],true) + log_eps_x + scoreMat[0][j-1].log_Vy;
-        scoreMat[0][j].log_Vm = log(TOL);
-        scoreMat[0][j].log_Vx = log(TOL);
+        scoreMat[0][j].log_Vm = LOG_MIN;
+        scoreMat[0][j].log_Vx = LOG_MIN;
         scoreMat[0][j].path_M = 'D';
         scoreMat[0][j].path_X = 'D';
         scoreMat[0][j].path_Y = 'D';
@@ -98,32 +148,44 @@ void PairHMM::viterbi()
         cur_path = 'D';
     }
     cigar.push_back(pair<char,int>(cur_path,1));
+
+    char prev_path;
     if (cur_path=='M'){
+        prev_path = scoreMat[i][j].path_M[0];
         i--;
         j--;
     }
-    if (cur_path=='I')
+    if (cur_path=='I'){
+        prev_path = scoreMat[i][j].path_X[0];
         i--;
-    if (cur_path=='D')
+    }
+    if (cur_path=='D'){
+        prev_path = scoreMat[i][j].path_Y[0];
         j--;
-    char prev_path = cur_path;
+    }
+
     while (i>0 || j>0){
+        if (cigar.back().first == prev_path)
+            cigar.back().second ++;
+        else
+            cigar.push_back(pair<char,int>(prev_path,1));
         if (prev_path=='M'){
-            cigar.push_back(pair<char,int>(scoreMat[i][j].path_M[0],1));
             prev_path = scoreMat[i][j].path_M[0];
             i--;
             j--;
+            continue;
         }
         if (prev_path=='I'){
-            cigar.push_back(pair<char,int>(scoreMat[i][j].path_X[0],1));
             prev_path = scoreMat[i][j].path_X[0];
             i--;
+            continue;
         }
         if (prev_path=='D'){
-            cigar.push_back(pair<char,int>(scoreMat[i][j].path_Y[0],1));
             prev_path = scoreMat[i][j].path_Y[0];
             j--;
+            continue;
         }
     }
-
+    // reverse cigar
+    reverse(cigar.begin(), cigar.end());
 }

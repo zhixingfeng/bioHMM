@@ -4,7 +4,8 @@
 #include "stl.h"
 #include "matrix.h"
 #include "math_utils.h"
-#define TOL 10e-16
+#define TOL 1e-16
+#define LOG_MIN -1e16
 
 struct QualityScore
 {
@@ -103,7 +104,7 @@ class PairHMM
             if (_dlt_x + _dlt_y >= 1)
                 throw runtime_error("in setPar, dlt_x + dlt_y should < 1");
 
-
+            // set parameters
             eps_x = _eps_x; eps_y = _eps_y;
             dlt_x = _dlt_x; dlt_y = _dlt_y;
             log_eps_x = log(eps_x); log_eps_y = log(eps_y);
@@ -115,6 +116,16 @@ class PairHMM
             log_a_mm = log(a_mm);
             log_a_im_x = log(a_im_x);
             log_a_im_y = log(a_im_y);
+
+            // set transition probability, M = 0, I/X = 1, D/Y = 2
+            transProb_value.setDim(3,3);
+            transProb_value[0][0] = 1 - dlt_x - dlt_y; transProb_value[0][1] = dlt_x; transProb_value[0][2] = dlt_y;
+            transProb_value[1][0] = 1 - eps_x; transProb_value[1][1] = eps_x; transProb_value[1][2] = 0;
+            transProb_value[2][0] = 1 - eps_y; transProb_value[2][1] = 0; transProb_value[2][2] = eps_y;
+            log_transProb_value.setDim(transProb_value.nrow, transProb_value.ncol);
+            for (int i=0; i < transProb_value.nrow; i++)
+                for (int j=0; j < transProb_value.ncol; j++)
+                    log_transProb_value[i][j] = transProb_value[i][j] > TOL ? log(transProb_value[i][j]) : LOG_MIN;
 
             is_setPar = true;
         }
@@ -304,13 +315,58 @@ class PairHMM
                 return Pxy_value[i][j];
         }
 
+        inline double transProb(char S_prev, char S, bool is_log = true)
+        {
+            if (transProb_value.nrow != 3 || transProb_value.ncol != 3)
+                throw runtime_error("transProb_value should be 3x3.");
+            int i,j;
+            switch(S_prev){
+                case 'M':
+                    i = 0;
+                    break;
+                case 'I':
+                    i = 1;
+                    break;
+                case 'D':
+                    i = 2;
+                    break;
+                default:
+                    throw runtime_error("state should be M, I or D");
+            }
+            switch(S){
+                case 'M':
+                    j = 0;
+                    break;
+                case 'I':
+                    j = 1;
+                    break;
+                case 'D':
+                    j = 2;
+                    break;
+                default:
+                    throw runtime_error("state should be M, I or D");
+            }
+            if (is_log)
+                return log_transProb_value[i][j];
+            else
+                return transProb_value[i][j];
+        }
+
         // get cigar
         inline vector < pair<char, int> > & get_cigar(){return cigar;}
+
+        // print cigar
+        inline void print_cigar(ostream & out = cout)
+        {
+            for (int i=0; i<(int)cigar.size(); i++)
+                out << cigar[i].second << cigar[i].first;
+        }
 
         // get scoreMat
         inline ScoreMatrix & get_scoreMat(){return scoreMat;}
 
         // -------------- algorithms ----------- //
+        double cal_likelihood_from_cigar(bool is_log = true);
         void viterbi();
 
     protected:
@@ -336,6 +392,9 @@ class PairHMM
         Matrix<double> Pxy_value;
         Matrix<double> log_Pxy_value;
 
+        // transition probability
+        Matrix<double> transProb_value;
+        Matrix<double> log_transProb_value;
 
         // alignment cigar
         vector < pair<char, int> > cigar;

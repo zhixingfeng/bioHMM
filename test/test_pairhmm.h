@@ -195,11 +195,11 @@ SUITE(TestPairHMM)
         CHECK_THROW(hmm.set_Pxy(P_1), exception);
     }
 
-    TEST_FIXTURE(TestPairHMM, PairHMM_viterbi)
+    TEST_FIXTURE(TestPairHMM, PairHMM_viterbi_basic)
     {
         CHECK_THROW(hmm.viterbi(), exception);
         // set seqX and seqY
-        hmm.setSeq("ACCTGAGAG", "ACGTGGAG");
+        hmm.setSeq("AACCTGAGAG", "ACGTGGAG");
         CHECK_THROW(hmm.viterbi(), exception);
         // eps_x = 0.02, dlt_x = 0.01, eps_y=0.02, eps_y=0.01
         hmm.setPar(0.02, 0.01, 0.02, 0.01);
@@ -233,6 +233,15 @@ SUITE(TestPairHMM)
 
         // get scoreMat
         Matrix<ScoreCell> outMat = hmm.get_scoreMat();
+        double log_max_L = outMat[outMat.nrow - 1][outMat.ncol - 1].log_Vm;
+        if (log_max_L < outMat[outMat.nrow - 1][outMat.ncol - 1].log_Vx)
+            log_max_L = outMat[outMat.nrow - 1][outMat.ncol - 1].log_Vx;
+        if (log_max_L < outMat[outMat.nrow - 1][outMat.ncol - 1].log_Vy)
+            log_max_L = outMat[outMat.nrow - 1][outMat.ncol - 1].log_Vy;
+        CHECK_CLOSE(hmm.cal_likelihood_from_cigar(), log_max_L, TOL);
+        CHECK_CLOSE(hmm.cal_likelihood_from_cigar(false), exp(log_max_L), TOL);
+
+        /*
         for (int i=0; i<outMat.nrow; i++){
             for (int j=0; j<outMat.ncol; j++){
                 cout << '(' << outMat[i][j].log_Vm << ',' << outMat[i][j].log_Vx << ',' << outMat[i][j].log_Vy << ")\t";
@@ -240,14 +249,76 @@ SUITE(TestPairHMM)
             cout << endl;
         }
 
+        for (int i=0; i<outMat.nrow; i++){
+            for (int j=0; j<outMat.ncol; j++){
+                cout << '(' << outMat[i][j].path_M << ',' << outMat[i][j].path_X << ',' << outMat[i][j].path_Y << ")\t";
+            }
+            cout << endl;
+        }
         // get cigar
+        cout << "cigar" << endl;
         vector<pair<char, int> > cigar = hmm.get_cigar();
         for (int i=0; i<(int)cigar.size(); i++)
             cout << '(' << cigar[i].first << ',' << cigar[i].second << "),";
         cout << endl;
+        hmm.print_cigar();
+        cout << endl;
 
+        // get max log-likelihood
+        cout << "max log-likelihood is " << hmm.cal_likelihood_from_cigar() << endl;
+        cout << "max likelihood is " << hmm.cal_likelihood_from_cigar(false) << endl;
+        */
     }
 
+    TEST_FIXTURE(TestPairHMM, PairHMM_viterbi_random_input)
+    {
+        // set seqX and seqY
+        hmm.setPar(0.02, 0.01, 0.02, 0.01);
+        vector<double> Px(4, 0.25);
+        hmm.set_Px(Px);
+        vector<double> Py(4, 0.25);
+        hmm.set_Py(Py);
+        Matrix <double> Pxy(4,4);
+        vector<double> cur_row(4,0.01);
+        for (int i=0; i<Pxy.nrow; i++) Pxy[i] = cur_row;
+        for (int i=0; i<Pxy.nrow; i++) Pxy[i][i] = 0.22;
+        hmm.set_Pxy(Pxy);
+
+        hmm.setSeq("AACCTGAGAGGTGGGGCGATGCGATCGATC", "ACGTGGAGGTGGGGTCGATGCTAGCGTAGCGACGCTACT");
+        // run viterbi
+        try{
+            hmm.viterbi();
+        }
+        catch (exception &e){
+            cout << e.what() << endl;
+        }
+
+
+    }
+    TEST_FIXTURE(TestPairHMM, PairHMM_transProb)
+    {
+        // eps_x = 0.02, dlt_x = 0.01, eps_y=0.02, eps_y=0.01
+        hmm.setPar(0.02, 0.01, 0.02, 0.01);
+        CHECK_EQUAL(hmm.transProb('M','M',false), 1 - 0.01 - 0.01);
+        CHECK_EQUAL(hmm.transProb('M','I',false), 0.01);
+        CHECK_EQUAL(hmm.transProb('M','D',false), 0.01);
+        CHECK_EQUAL(hmm.transProb('I','M',false), 1 - 0.02);
+        CHECK_EQUAL(hmm.transProb('I','I',false), 0.02);
+        CHECK_EQUAL(hmm.transProb('I','D',false), 0);
+        CHECK_EQUAL(hmm.transProb('D','M',false), 1 - 0.02);
+        CHECK_EQUAL(hmm.transProb('D','D',false), 0.02);
+        CHECK_EQUAL(hmm.transProb('D','I',false), 0);
+
+        CHECK_EQUAL(hmm.transProb('M','M',true), log(1 - 0.01 - 0.01));
+        CHECK_EQUAL(hmm.transProb('M','I',true), log(0.01));
+        CHECK_EQUAL(hmm.transProb('M','D',true), log(0.01));
+        CHECK_EQUAL(hmm.transProb('I','M',true), log(1 - 0.02));
+        CHECK_EQUAL(hmm.transProb('I','I',true), log(0.02));
+        CHECK_EQUAL(hmm.transProb('I','D',true), LOG_MIN);
+        CHECK_EQUAL(hmm.transProb('D','M',true), log(1 - 0.02));
+        CHECK_EQUAL(hmm.transProb('D','D',true), log(0.02));
+        CHECK_EQUAL(hmm.transProb('D','I',true), LOG_MIN);
+    }
 }
 
 
