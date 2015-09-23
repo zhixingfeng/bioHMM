@@ -10,6 +10,19 @@ SUITE(TestPairHMM)
         public:
             PairHMM hmm;
             ScoreMatrix scoremat;
+        public:
+            void set_std_par(){
+                hmm.setPar(0.02, 0.01, 0.02, 0.01);
+                vector<double> Px(4, 0.25);
+                hmm.set_Px(Px);
+                vector<double> Py(4, 0.25);
+                hmm.set_Py(Py);
+                Matrix <double> Pxy(4,4);
+                vector<double> cur_row(4,0.01);
+                for (int i=0; i<Pxy.nrow; i++) Pxy[i] = cur_row;
+                for (int i=0; i<Pxy.nrow; i++) Pxy[i][i] = 0.22;
+                hmm.set_Pxy(Pxy);
+            }
     };
 
     TEST_FIXTURE(TestPairHMM, PairHMM_setSeq)
@@ -241,6 +254,7 @@ SUITE(TestPairHMM)
         CHECK_CLOSE(hmm.cal_likelihood_from_cigar(), log_max_L, TOL);
         CHECK_CLOSE(hmm.cal_likelihood_from_cigar(false), exp(log_max_L), TOL);
 
+        //hmm.print_Mat(hmm.get_scoreMat());
         /*
         for (int i=0; i<outMat.nrow; i++){
             for (int j=0; j<outMat.ncol; j++){
@@ -272,19 +286,9 @@ SUITE(TestPairHMM)
 
     TEST_FIXTURE(TestPairHMM, PairHMM_viterbi_random_input)
     {
-        // set seqX and seqY
-        hmm.setPar(0.02, 0.01, 0.02, 0.01);
-        vector<double> Px(4, 0.25);
-        hmm.set_Px(Px);
-        vector<double> Py(4, 0.25);
-        hmm.set_Py(Py);
-        Matrix <double> Pxy(4,4);
-        vector<double> cur_row(4,0.01);
-        for (int i=0; i<Pxy.nrow; i++) Pxy[i] = cur_row;
-        for (int i=0; i<Pxy.nrow; i++) Pxy[i][i] = 0.22;
-        hmm.set_Pxy(Pxy);
-
+        set_std_par();
         hmm.setSeq("AACCTGAGAGGTGGGGCGATGCGATCGATC", "ACGTGGAGGTGGGGTCGATGCTAGCGTAGCGACGCTACT");
+
         // run viterbi
         try{
             hmm.viterbi();
@@ -318,6 +322,46 @@ SUITE(TestPairHMM)
         CHECK_EQUAL(hmm.transProb('D','M',true), log(1 - 0.02));
         CHECK_EQUAL(hmm.transProb('D','D',true), log(0.02));
         CHECK_EQUAL(hmm.transProb('D','I',true), LOG_MIN);
+    }
+
+    TEST_FIXTURE(TestPairHMM, PairHMM_forward)
+    {
+        set_std_par();
+        //hmm.setSeq("AACCTGAGAGGTGGGGCGATGCGATCGATC", "ACGTGGAGGTGGGGTCGATGCTAGCGTAGCGACGCTACT");
+        hmm.setSeq("ACCTGAGAG", "ACGTGGAG");
+        // run forward algorithm
+        //hmm.forward(hmm.getSeqX().size()+1, hmm.getSeqY().size()+1);
+        double log_L_fwd = hmm.forward();
+        //hmm.print_Mat(hmm.get_fwdMat());
+        //cout << log_L_fwd << endl << endl;
+
+        /*hmm.setSeq("ACATGAGAG", "ACGTGGAG");
+        cout << hmm.forward() << endl;
+        hmm.setSeq("ACCTGAGAG", "ACGTGGAG");
+        cout << hmm.forward() << endl;
+        hmm.setSeq("ACGTGAGAG", "ACGTGGAG");
+        cout << hmm.forward() << endl;
+        hmm.setSeq("ACTTGAGAG", "ACGTGGAG");
+        cout << hmm.forward() << endl;*/
+
+        hmm.setSeq("GATC", "GATTC");
+        double log_A = hmm.forward();
+        cout << log_A << endl;
+        hmm.print_Mat(hmm.get_fwdMat());
+        hmm.setSeq("GCTC", "GATTC");
+        double log_C = hmm.forward();
+        cout << log_C << endl;
+        hmm.setSeq("GGTC", "GATTC");
+        double log_G = hmm.forward();
+        cout << log_G << endl;
+        hmm.setSeq("GTTC", "GATTC");
+        double log_T = hmm.forward();
+        cout << log_T << endl;
+        hmm.print_Mat(hmm.get_fwdMat());
+        double norm = exp(log_A) + exp(log_C) + exp(log_G) + exp(log_T);
+        cout << "prob:" << endl;
+        cout << exp(log_A)/norm << ',' << exp(log_C)/norm << ',' << exp(log_G)/norm << ',' << exp(log_T)/norm << endl;
+
     }
 }
 

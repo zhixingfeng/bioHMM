@@ -3,6 +3,7 @@
 #include "pairhmm.h"
 #include "./test/test_matrix.h"
 #include "./test/test_pairhmm.h"
+#include "./test/test_logsum.h"
 
 int main(int argc, char *argv[])
 {

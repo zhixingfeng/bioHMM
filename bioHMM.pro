@@ -17,7 +17,9 @@ HEADERS += \
     type.h \
     matrix.h \
     test/test_matrix.h \
-    test/test_pairhmm.h
+    test/test_pairhmm.h \
+    logsum.h \
+    test/test_logsum.h
 
 INCLUDEPATH += ./tools
 

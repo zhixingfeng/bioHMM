@@ -4,6 +4,7 @@
 #include "stl.h"
 #include "matrix.h"
 #include "math_utils.h"
+#include "logsum.h"
 #define TOL 1e-16
 #define LOG_MIN -1e16
 
@@ -88,6 +89,8 @@ class PairHMM
                 validateSeq(seqY);
             }
             scoreMat.setDim(seqX.size()+1, seqY.size()+1);
+            fwdMat.setDim(seqX.size()+1, seqY.size()+1);
+            bwdMat.setDim(seqX.size()+1, seqY.size()+1);
             is_setSeq = true;
         }
 
@@ -362,12 +365,27 @@ class PairHMM
                 out << cigar[i].second << cigar[i].first;
         }
 
-        // get scoreMat
+        // get scoreMat, fwdMat and bwdMat
         inline ScoreMatrix & get_scoreMat(){return scoreMat;}
+        inline ScoreMatrix & get_fwdMat(){return fwdMat;}
+        inline ScoreMatrix & get_bwdMat(){return bwdMat;}
+
+        inline void print_Mat(ScoreMatrix & Mat, ostream & out = cout, bool is_log_V=true, bool is_V=false, bool is_path=false){
+            if (is_log_V){
+                for (int i=0; i<Mat.nrow; i++){
+                    for (int j=0; j<Mat.ncol; j++){
+                        out << '(' << Mat[i][j].log_Vm << ',' << Mat[i][j].log_Vx << ',' << Mat[i][j].log_Vy << ")\t";
+                    }
+                    out << endl;
+                }
+            }
+        }
 
         // -------------- algorithms ----------- //
         double cal_likelihood_from_cigar(bool is_log = true);
         void viterbi();
+        double forward();
+        double backward();
 
     protected:
         // input sequences
@@ -399,8 +417,14 @@ class PairHMM
         // alignment cigar
         vector < pair<char, int> > cigar;
 
-        // score matrix, work on log space
+        // score matrix for viterbi, work on log space
         ScoreMatrix scoreMat;
+
+        // score matrix for forward algorithm, work on log space
+        ScoreMatrix fwdMat;
+
+        // score matrix for backward algorithm, work on log space
+        ScoreMatrix bwdMat;
 
         // indicator, have to set seqX, seqY, and parameters before running algorithms
         bool is_setSeq;
@@ -421,7 +445,6 @@ class PairHMM
             if (seq.size() < 1)
                 throw runtime_error("empty sequences is not allowed.");
         }
-
 
 };
 

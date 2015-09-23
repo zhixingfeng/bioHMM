@@ -189,3 +189,61 @@ void PairHMM::viterbi()
     // reverse cigar
     reverse(cigar.begin(), cigar.end());
 }
+
+double PairHMM::forward()
+{
+    if (!is_setSeq)
+        throw runtime_error("sequences have not be set.");
+    if (!is_setPar)
+        throw runtime_error("parameters have not be set.");
+    if (!is_set_Px)
+        throw runtime_error("Px have not be set.");
+    if (!is_set_Py)
+        throw runtime_error("Py have not be set.");
+    if (!is_set_Pxy)
+        throw runtime_error("Pxy have not be set.");
+
+
+    // initialize
+    fwdMat[0][0].log_Vm = 0; fwdMat[0][0].log_Vx = LOG_MIN; fwdMat[0][0].log_Vy = LOG_MIN;
+    for (int i=1; i<fwdMat.nrow; i++){
+        if (i==1)
+            fwdMat[i][0].log_Vx = Px(seqX[i-1],true) + log_dlt_x + fwdMat[i-1][0].log_Vm;
+        else
+            fwdMat[i][0].log_Vx = Px(seqX[i-1],true) + log_eps_x + fwdMat[i-1][0].log_Vx;
+        fwdMat[i][0].log_Vm = LOG_MIN;
+        fwdMat[i][0].log_Vy = LOG_MIN;
+    }
+
+    for (int j=1; j<fwdMat.ncol; j++){
+        if (j==1)
+            fwdMat[0][j].log_Vy = Py(seqY[j-1],true) + log_dlt_x + fwdMat[0][j-1].log_Vm;
+        else
+            fwdMat[0][j].log_Vy = Py(seqY[j-1],true) + log_eps_x + fwdMat[0][j-1].log_Vy;
+        fwdMat[0][j].log_Vm = LOG_MIN;
+        fwdMat[0][j].log_Vx = LOG_MIN;
+    }
+
+    // fill in fwdMatfwdMat
+    for (int i=1; i<fwdMat.nrow; i++){
+        for (int j=1; j<fwdMat.ncol; j++){
+            // match
+            fwdMat[i][j].log_Vm = log_sum(log_a_mm + fwdMat[i-1][j-1].log_Vm, log_a_im_x + fwdMat[i-1][j-1].log_Vx);
+            fwdMat[i][j].log_Vm = log_sum(fwdMat[i][j].log_Vm, log_a_im_y + fwdMat[i-1][j-1].log_Vy);
+            fwdMat[i][j].log_Vm += Pxy(seqX[i-1],seqY[j-1],true);
+
+            // insertion on X
+            fwdMat[i][j].log_Vx = log_sum(log_dlt_x + fwdMat[i-1][j].log_Vm, log_eps_x + fwdMat[i-1][j].log_Vx);
+            fwdMat[i][j].log_Vx += Px(seqX[i-1],true);
+
+            // insertion on Y
+            fwdMat[i][j].log_Vy = log_sum(log_dlt_y + fwdMat[i][j-1].log_Vm, log_eps_y + fwdMat[i][j-1].log_Vy);
+            fwdMat[i][j].log_Vy += Py(seqY[j-1],true);
+        }
+    }
+    double rl = log_sum(fwdMat[fwdMat.nrow-1][fwdMat.ncol-1].log_Vm, fwdMat[fwdMat.nrow-1][fwdMat.ncol-1].log_Vx);
+    rl = log_sum(rl, fwdMat[fwdMat.nrow-1][fwdMat.ncol-1].log_Vy);
+    return rl;
+}
+
+
